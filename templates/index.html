@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PS4 Discord WebUI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+      :root{--bg:#0f1720;--panel:#0b1220;--muted:#9aa4b2;--accent:#5865F2;--glass:rgba(255,255,255,0.03)}
+      *{box-sizing:border-box}
+      body{font-family:Inter, Noto Sans, system-ui, 'Segoe UI', Roboto, Arial, sans-serif;color:#e6eef6;background:linear-gradient(180deg,#071023, #051026);margin:0;height:100vh;display:flex}
+      .sidebar{width:280px;min-width:220px;padding:16px;background:var(--panel);border-right:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+      .main{flex:1;display:flex;flex-direction:column}
+      h1{font-size:16px;margin:0 0 12px 0;color:white}
+      .section-title{font-size:13px;color:var(--muted);margin:8px 0}
+      /* Dedicated scrollable areas for long lists */
+      #guilds, .channels ul{overflow:auto;padding-right:8px}
+      #guilds{max-height:calc(40vh - 20px)}
+      .channels ul{max-height:calc(50vh - 40px)}
+      .loading{color:var(--muted);padding:8px}
+      .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.06);border-top-color:var(--accent);animation:spin 1s linear infinite;margin-right:8px}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      ul{list-style:none;padding:0;margin:0;overflow:auto}
+      li{padding:8px;border-radius:6px;color:#d8e6ff;cursor:pointer;display:flex;align-items:center}
+      li:hover{background:var(--glass)}
+      .channels{padding:8px;background:transparent}
+      .messages-header{padding:16px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:space-between;color:#dbe9ff}
+      #messages{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+      .msg{max-width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,0.03);color:#eaf2ff}
+      .msg .meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+      .content{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+      .content code{background:#222;color:#fff;padding:2px 4px;border-radius:4px;font-family:monospace}
+      .content pre{background:#111;color:#fff;padding:8px;border-radius:6px;overflow:auto;font-family:monospace}
+      .reply-btn{margin-left:8px;background:transparent;border:none;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:6px}
+      .reply-btn:hover{background:rgba(255,255,255,0.02);color:#eaf2ff}
+      .reply-preview{background:rgba(255,255,255,0.03);padding:8px;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+      .reply-preview .meta{color:var(--muted);font-size:13px}
+      .reply-preview .cancel{background:transparent;border:none;color:var(--muted);cursor:pointer}
+      .reply{border-left:3px solid rgba(88,101,242,0.25);background:rgba(255,255,255,0.02);padding:6px;border-radius:6px;margin-bottom:8px}
+      .reply-author{font-size:12px;color:var(--accent);margin-bottom:4px}
+      .reply-snippet{font-size:13px;color:var(--muted);max-height:3.6em;overflow:hidden;text-overflow:ellipsis}
+      .markers{margin-top:6px;font-size:12px;color:var(--muted)}
+      /* reactions removed */
+      .mention{background:rgba(88,101,242,0.15);color:#cfe0ff;padding:2px 6px;border-radius:6px}
+      .mention.me{background:rgba(88,101,242,0.85);color:white}
+      .channel.hidden{opacity:0.5;font-style:italic}
+      .input-area{padding:12px;border-top:1px solid rgba(255,255,255,0.03);display:flex;gap:8px;align-items:center}
+      .input-area input{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#061222;color:#eaf2ff}
+      .btn{background:var(--accent);border:none;color:white;padding:10px 12px;border-radius:8px;cursor:pointer}
+      .small{font-size:12px;color:var(--muted)}
+      .topbar{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:space-between}
+      .sidebar-toggle{display:none;border:none;background:transparent;color:var(--muted);cursor:pointer}
+      @media (max-width:800px){
+        .sidebar{position:absolute;z-index:30;left:0;top:0;bottom:0;transform:translateX(0);transition:transform .2s ease}
+        .sidebar.collapsed{transform:translateX(-100%)}
+        .sidebar-toggle{display:inline-block}
+      }
+      .login-warning{background:#4b1919;padding:10px;border-radius:6px;color:#ffdede;margin:12px}
+    </style>
+  </head>
+  <body>
+    <div class="sidebar">
+      <h1>PS4 Discord WebUI</h1>
+      {% if not token_present %}
+      <div class="login-warning">No token found in <strong>config.json</strong>. Copy <strong>config.json.example</strong> to <strong>config.json</strong>.</div>
+      {% endif %}
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="section-title">Guilds</div>
+        <button id="refreshGuilds" class="btn" style="padding:6px 8px;font-size:12px">Refresh</button>
+      </div>
+      <ul id="guilds"></ul>
+      <div class="section-title">Channels</div>
+      <div class="channels"><ul id="channels"></ul></div>
+    </div>
+    <div class="main">
+      <div class="topbar messages-header">
+        <div>
+          <button id="toggleSidebar" class="sidebar-toggle">☰</button>
+          <strong id="currentChannelName">Select a channel</strong>
+          <div class="small" id="channelInfo">Messages will appear here</div>
+        </div>
+        <div class="small">Connected</div>
+      </div>
+      <div id="messages"></div>
+      <div style="padding:0 12px 8px 12px">
+        <div id="replyPreview" style="display:none" class="reply-preview"><div class="meta" id="replyMeta"></div><button id="cancelReply" class="cancel">×</button></div>
+        <form id="sendForm" class="input-area">
+          <input id="messageInput" placeholder="Message..." autocomplete="off" />
+        </form>
+      </div>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

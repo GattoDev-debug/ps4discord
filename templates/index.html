@@ -56,9 +56,21 @@
         .sidebar-toggle{display:inline-block}
       }
       .login-warning{background:#4b1919;padding:10px;border-radius:6px;color:#ffdede;margin:12px}
+      /* Splash Screen */
+      #splash{position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg,#071023, #051026);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.3s}
+      #splash.hidden{opacity:0;pointer-events:none}
+      #splash h2{color:white;margin-bottom:20px;font-size:24px}
+      #splash .loader{width:40px;height:40px;border-radius:50%;border:4px solid rgba(255,255,255,0.1);border-top-color:var(--accent);animation:spin 1s linear infinite}
+      #splash .skip-btn{margin-top:30px;padding:10px 20px;background:transparent;border:1px solid rgba(255,255,255,0.2);color:var(--muted);border-radius:8px;cursor:pointer;transition:all 0.2s}
+      #splash .skip-btn:hover{background:var(--glass);color:#eaf2ff;border-color:rgba(255,255,255,0.3)}
     </style>
   </head>
   <body>
+
+  <div id="splash">
+    <h2>Loading...</h2>
+    <div class="loader"></div>
+  </div>
     <div class="sidebar">
       <h1>PS4 Discord WebUI</h1>
       {% if not token_present %}
@@ -89,6 +101,7 @@
         </form>
       </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js" onload="new MutationObserver(m=>m.forEach(n=>n.addedNodes.forEach(e=>e.nodeType===1&&twemoji.parse(e,{folder:'svg',ext:'.svg'})))||twemoji.parse(document.body,{folder:'svg',ext:'.svg'})).observe(document.body,{childList:true,subtree:true});document.head.insertAdjacentHTML('beforeend','<style>img.emoji{height:1em;width:1em;margin:0 .05em 0 .1em;vertical-align:-0.1em}</style>')"></script>  
     <script src="/static/app.js"></script>
   </body>
 </html>

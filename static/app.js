@@ -30,7 +30,18 @@ if(cancelReplyBtn) cancelReplyBtn.addEventListener('click', ()=>{
   replyTarget = null;
   if(replyPreviewEl) replyPreviewEl.style.display = 'none';
 });
+function showSplash(text = 'Loading...'){
+  const splash = document.getElementById('splash');
+  if(splash){
+    splash.querySelector('h2').textContent = text;
+    splash.classList.remove('hidden');
+  }
+}
 
+function hideSplash(){
+  const splash = document.getElementById('splash');
+  if(splash) splash.classList.add('hidden');
+}
 function isNearBottom(el, threshold=150){
   return (el.scrollHeight - el.scrollTop - el.clientHeight) <= threshold;
 }
@@ -87,9 +98,9 @@ function renderMarkdown(text){
 }
 
 async function loadGuilds(){
+  showSplash('Loading guilds...');
   try{
     guildsEl.innerHTML = '<li class="loading"><span class="spinner"></span>Loading guilds...</li>';
-    // fetch current user first to detect pings
     try{ currentUser = await api('/api/me'); }catch(e){ currentUser = null }
     const guilds = await api('/api/guilds');
     guildsEl.innerHTML = '';
@@ -99,11 +110,12 @@ async function loadGuilds(){
       li.onclick = ()=>loadChannels(g.id);
       guildsEl.appendChild(li);
     });
+    hideSplash();
   }catch(e){
     guildsEl.innerHTML = '<li style="color:#ffb4b4">'+e.message+'</li>';
+    hideSplash();
   }
 }
-
 document.getElementById('refreshGuilds').addEventListener('click', async ()=>{
   try{
     document.getElementById('refreshGuilds').disabled = true;
@@ -134,6 +146,7 @@ async function loadChannels(guildId){
 }
 
 async function selectChannel(channelId, channelName){
+  showSplash('Loading messages...');
   currentChannel = channelId;
   currentChannelName.textContent = channelName || `#${channelId}`;
   channelInfo.textContent = `Channel: ${channelId}`;
@@ -249,6 +262,7 @@ async function loadMessages(channelId){
     // trim old messages to keep DOM small
     while(messagesEl.children.length > MAX_MESSAGES){ messagesEl.removeChild(messagesEl.firstChild); }
     scrollToBottom();
+    hideSplash();
   }catch(e){
     // if access denied or not viewable, mark channel hidden and show a notice
     messagesEl.innerHTML = `<div style="color:#ffb4b4">${e.message}</div>`;
@@ -256,6 +270,7 @@ async function loadMessages(channelId){
     // mark UI list item if present
     const li = channelsEl.querySelector(`[data-channel-id="${channelId}"]`);
     if(li) li.classList.add('hidden');
+    hideSplash(); 
   }
 }
 

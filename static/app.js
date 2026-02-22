@@ -130,6 +130,7 @@ document.getElementById('refreshGuilds').addEventListener('click', async ()=>{
 
 async function loadChannels(guildId){
   try{
+    showSplash('Loading channels...');
     const chans = await api(`/api/guilds/${guildId}/channels`);
     channelsEl.innerHTML = '';
     chans.filter(c=>c.type===0 || c.type===5 || c.type===2).forEach(c=>{
@@ -139,8 +140,10 @@ async function loadChannels(guildId){
       li.classList.toggle('hidden', !!channelHidden[c.id]);
       li.onclick = ()=>selectChannel(c.id, c.name);
       channelsEl.appendChild(li);
+      hideSplash();
     });
   }catch(e){
+    hideSplash();
     channelsEl.innerHTML = '<li style="color:#ffb4b4">'+e.message+'</li>';
   }
 }
@@ -388,7 +391,7 @@ sendForm.addEventListener('submit', async (ev)=>{
   const content = input.value.trim();
   if(!content || !currentChannel) return;
   // sanitize outgoing content: replace emojis so PS4 clients don't send them
-  const sanitized = replaceEmojis(content);
+  const sanitized = content; //ok i forgot i deleted a function lmao
   const now = Date.now();
   if(content === lastSent.content && (now - lastSent.ts) < 2000){
     // debounce duplicate
@@ -397,6 +400,7 @@ sendForm.addEventListener('submit', async (ev)=>{
   sending = true;
   input.disabled = true;
   try{
+    //showSplash("Sending Message..."); this is obnoxious
     const body = {content: sanitized};
     if(replyTarget && replyTarget.messageId){ body.reply_to = replyTarget.messageId; }
     await api(`/api/channels/${currentChannel}/messages`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
@@ -406,8 +410,10 @@ sendForm.addEventListener('submit', async (ev)=>{
     replyTarget = null; if(replyPreviewEl) replyPreviewEl.style.display = 'none';
     await fetchNewMessages(currentChannel);
   }catch(e){
+    //hideSplash();
     alert('Send failed: '+e.message);
   }finally{
+    //hideSplash();
     sending = false;
     // ensure input is enabled
     input.disabled = false;

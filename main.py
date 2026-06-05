@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import aiohttp
@@ -7,6 +8,7 @@ import json
 import pathlib
 from urllib.parse import quote
 import time
+SENT_MESSAGES = {}
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -60,6 +62,24 @@ async def discord_post(path: str, payload: dict):
                 return await resp.json()
             except Exception:
                 return {"ok": True}
+
+
+async def proxy_fetch_text(url: str):
+    async with aiohttp.ClientSession() as sess:
+        async with sess.get(url) as resp:
+            text = await resp.text()
+            if resp.status >= 400:
+                raise HTTPException(status_code=resp.status, detail=text)
+            return text
+
+async def proxy_fetch_bytes(url: str):
+    async with aiohttp.ClientSession() as sess:
+        async with sess.get(url) as resp:
+            data = await resp.read()
+            if resp.status >= 400:
+                text = (await resp.text())
+                raise HTTPException(status_code=resp.status, detail=text)
+            return data, resp.headers.get('Content-Type')
 
 
 async def discord_put(path: str):
@@ -160,7 +180,29 @@ async def api_send_message(channel_id: str, payload: dict):
             body["message_reference"] = {"message_id": str(reply_to), "channel_id": channel_id}
         # by default allow Discord to mention the replied user; frontend can override
         body.setdefault("allowed_mentions", {"replied_user": True})
-    return await discord_post(f"/channels/{channel_id}/messages", body)
+    # Simply post the message (frontend is responsible for appending any invisible marker)
+    res = await discord_post(f"/channels/{channel_id}/messages", body)
+    return res
+
+
+@app.get('/assets/twemoji.min.js')
+async def assets_twemoji_js():
+    # proxy the upstream twemoji package to serve to PS4 clients from the PC
+    url = 'https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js'
+    text = await proxy_fetch_text(url)
+    return Response(content=text, media_type='application/javascript')
+
+
+@app.get('/assets/twemoji/{path:path}')
+async def assets_twemoji(path: str):
+    # path will be like "svg/1f600.svg"; proxy from twemoji CDN
+    url = f'https://twemoji.maxcdn.com/v/latest/{path}'
+    data, ctype = await proxy_fetch_bytes(url)
+    if not ctype:
+        # fallback by extension
+        ext = pathlib.Path(path).suffix
+        ctype = mimetypes.types_map.get(ext, 'application/octet-stream')
+    return Response(content=data, media_type=ctype)
 
 if __name__ == "__main__":
     import uvicorn

@@ -97,6 +97,10 @@ function renderMarkdown(text){
   return out;
 }
 
+
+
+const INV_DELIM = '\u200B';
+
 async function loadGuilds(){
   showSplash('Loading guilds...');
   try{
@@ -178,7 +182,11 @@ async function loadMessages(channelId){
         displayName = m.author && (m.author.global_name || m.author.username) || 'unknown';
       }
       displayName = displayName || 'unknown';
-      const author = `<div class="meta"><strong>${displayName}</strong> • ${fmtTime(m.timestamp||m.id)}</div>`;
+      let raw = (m.content||'');
+      const hasWebFlag = raw.indexOf(INV_DELIM) !== -1;
+      if(hasWebFlag) raw = raw.split(INV_DELIM).join('');
+      const webuiMark = hasWebFlag ? `<span class="small" style="color:#9fc1ff;margin-left:8px">PS4 WebUI</span>` : '';
+      const author = `<div class="meta"><strong>${displayName}</strong> • ${fmtTime(m.timestamp||m.id)} ${webuiMark}</div>`;
       let replyHtml = '';
       if(m.referenced_message){
         const ref = m.referenced_message;
@@ -187,7 +195,7 @@ async function loadMessages(channelId){
         replyHtml = `<div class="reply"><div class="reply-author">Reply to ${refDisplay}</div><div class="reply-snippet">${refContent}</div></div>`;
       }
       // replace mentions with markers, then escape the rest to avoid breaking inserted HTML
-      let raw = (m.content||'');
+      // 'raw' was set earlier (with any embedded token removed)
       const mentionHtml = [];
       if(m.mentions && m.mentions.length){
         m.mentions.forEach((u,i)=>{
@@ -237,6 +245,7 @@ async function loadMessages(channelId){
       })();
       /* reactions removed */
       messagesEl.appendChild(d);
+
     });
     // fetch missing member display names and update DOM
     for(const [k,info] of missingMembers){
@@ -297,7 +306,11 @@ async function fetchNewMessages(channelId){
         displayName = m.author && (m.author.global_name || m.author.username) || 'unknown';
       }
       displayName = displayName || 'unknown';
-      const author = `<div class="meta"><strong>${displayName}</strong> • ${fmtTime(m.timestamp||m.id)}</div>`;
+      let raw = (m.content||'');
+      const hasWebFlag = raw.indexOf(INV_DELIM) !== -1;
+      if(hasWebFlag) raw = raw.split(INV_DELIM).join('');
+      const webuiMark = hasWebFlag ? `<span class="small" style="color:#9fc1ff;margin-left:8px">PS4 WebUI</span>` : '';
+      const author = `<div class="meta"><strong>${displayName}</strong> • ${fmtTime(m.timestamp||m.id)} ${webuiMark}</div>`;
       let replyHtml = '';
       if(m.referenced_message){
         const ref = m.referenced_message;
@@ -305,7 +318,7 @@ async function fetchNewMessages(channelId){
         const refContent = (ref.content||'').replace(/</g,'&lt;');
         replyHtml = `<div class="reply"><div class="reply-author">Reply to ${refDisplay}</div><div class="reply-snippet">${refContent}</div></div>`;
       }
-      let raw = (m.content||'');
+      // 'raw' was set earlier (with any embedded token removed)
       const mentionHtml = [];
       if(m.mentions && m.mentions.length){
         m.mentions.forEach((u,i)=>{
@@ -350,6 +363,7 @@ async function fetchNewMessages(channelId){
         }
       })();
       messagesEl.appendChild(d);
+
     });
     for(const [k,info] of missingMembers){
       (async ()=>{
@@ -390,8 +404,9 @@ sendForm.addEventListener('submit', async (ev)=>{
   const input = document.getElementById('messageInput');
   const content = input.value.trim();
   if(!content || !currentChannel) return;
-  // sanitize outgoing content: replace emojis so PS4 clients don't send them
-  const sanitized = content; //ok i forgot i deleted a function lmao
+  // sanitize outgoing content: append invisible delimiter so WebUI instances can identify messages
+  let sanitized = content;
+  if(!sanitized.includes(INV_DELIM)) sanitized = sanitized + INV_DELIM;
   const now = Date.now();
   if(content === lastSent.content && (now - lastSent.ts) < 2000){
     // debounce duplicate
